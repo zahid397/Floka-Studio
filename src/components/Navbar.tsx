@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, User } from "lucide-react";
 import { useActiveSection } from "@/hooks/useActiveSection";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const links = [
   { label: "Home", href: "#home" },
@@ -20,6 +21,7 @@ interface NavbarProps {
 export default function Navbar({ onOpenAuth }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const active = useActiveSection();
   const { user, signOut } = useAuth();
 
@@ -34,20 +36,33 @@ export default function Navbar({ onOpenAuth }: NavbarProps) {
     document.querySelector(href)?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    setShowUserMenu(false);
+    toast.success("Signed out successfully");
+  };
+
   return (
     <motion.nav
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? "bg-background/90 backdrop-blur-md border-b border-border" : "bg-transparent"
+        scrolled
+          ? "bg-background/90 backdrop-blur-md border-b border-border"
+          : "bg-transparent"
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-        <button onClick={() => scrollTo("#home")} className="text-xl font-bold font-dm text-foreground">
+        {/* Logo */}
+        <button
+          onClick={() => scrollTo("#home")}
+          className="text-xl font-bold font-dm text-foreground"
+        >
           Floka.
         </button>
 
+        {/* Desktop Nav Links */}
         <div className="hidden md:flex items-center gap-8">
           {links.map((l) => (
             <button
@@ -64,31 +79,72 @@ export default function Navbar({ onOpenAuth }: NavbarProps) {
           ))}
         </div>
 
-        <div className="hidden md:flex items-center gap-3">
+        {/* Desktop Auth */}
+        <div className="hidden md:flex items-center gap-3 relative">
           {user ? (
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-foreground">
-                {user.email?.[0]?.toUpperCase()}
-              </div>
-              <button onClick={signOut} className="text-muted-foreground hover:text-foreground transition-colors" title="Sign out">
-                <LogOut size={18} />
+            <div className="relative">
+              {/* User button */}
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 border border-border rounded-full px-3 py-2 hover:bg-muted transition-colors"
+              >
+                <div className="w-6 h-6 rounded-full bg-gray-900 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  {user.email?.[0]?.toUpperCase()}
+                </div>
+                <span className="text-sm font-medium text-foreground max-w-[140px] truncate">
+                  {user.email}
+                </span>
               </button>
+
+              {/* Dropdown */}
+              <AnimatePresence>
+                {showUserMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-12 bg-white border border-gray-100 rounded-2xl shadow-xl p-2 min-w-[200px]"
+                  >
+                    {/* User info */}
+                    <div className="px-3 py-2 border-b border-gray-100 mb-1">
+                      <div className="flex items-center gap-2">
+                        <User size={14} className="text-gray-400" />
+                        <span className="text-xs text-gray-500 truncate">{user.email}</span>
+                      </div>
+                    </div>
+                    {/* Sign out */}
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium"
+                    >
+                      <LogOut size={15} />
+                      Sign Out
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ) : (
             <button
               onClick={onOpenAuth}
-              className="border border-border rounded-full px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              className="border border-border rounded-full px-5 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
             >
               Sign In
             </button>
           )}
         </div>
 
-        <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden text-foreground">
+        {/* Mobile Hamburger */}
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="md:hidden text-foreground"
+        >
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
+      {/* Mobile Menu */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -109,16 +165,22 @@ export default function Navbar({ onOpenAuth }: NavbarProps) {
                 {l.label}
               </motion.button>
             ))}
+
             {user ? (
-              <motion.button
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                onClick={() => { signOut(); setMenuOpen(false); }}
-                className="text-lg text-muted-foreground flex items-center gap-2"
+                className="flex flex-col items-center gap-3"
               >
-                <LogOut size={18} /> Sign Out
-              </motion.button>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
+                <button
+                  onClick={() => { handleSignOut(); setMenuOpen(false); }}
+                  className="flex items-center gap-2 text-red-500 font-medium"
+                >
+                  <LogOut size={18} /> Sign Out
+                </button>
+              </motion.div>
             ) : (
               <motion.button
                 initial={{ opacity: 0, y: 20 }}
